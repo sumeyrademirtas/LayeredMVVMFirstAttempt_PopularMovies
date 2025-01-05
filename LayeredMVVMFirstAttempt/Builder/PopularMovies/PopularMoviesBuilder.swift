@@ -16,7 +16,9 @@ protocol PopularMoviesBuilder {
 struct PopularMoviesBuilderImplementation: PopularMoviesBuilder {
     func build() -> UIViewController {
         
-        let service = PopularMoviesServiceImplementation(apiHost: Constants.apiHost, apiKey: Constants.apiKey)
+        let constants = Constants()
+        
+        let service = PopularMoviesServiceImplementation(constants: constants)
         
         let useCase = PopularMoviesUseCaseImplementation(service: service)
         

@@ -31,23 +31,20 @@ struct PopularMoviesResponse: Decodable {
 
 struct PopularMoviesServiceImplementation: PopularMoviesService {
     private let session: URLSession
-    private let apiHost: String
-    private let apiKey: String
+    private let constants: Constants
 
-    init(session: URLSession = .shared, apiHost: String, apiKey: String) {
+    init(session: URLSession = .shared, constants: Constants) {
         self.session = session
-        self.apiHost = apiHost
-        self.apiKey = apiKey
+        self.constants = constants
     }
 
     func fetchPopularMovies(page: Int, completion: @escaping (Result<[Movie], Error>) -> Void) {
-        
         // URL olusturma
-        let endpoint = "\(apiHost)/movie/popular" // endpoint olusturuluyor
-        
+        let endpoint = "\(constants.apiHost)/movie/popular" // endpoint olusturuluyor
+
         var urlComponents = URLComponents(string: endpoint)
         urlComponents?.queryItems = [ // Query parameters ekleniyor
-            URLQueryItem(name: "api_key", value: apiKey),
+            URLQueryItem(name: "api_key", value: constants.apiKey),
             URLQueryItem(name: "language", value: "en-US"),
             URLQueryItem(name: "page", value: "\(page)")
         ]
@@ -65,7 +62,7 @@ struct PopularMoviesServiceImplementation: PopularMoviesService {
             }
 
             guard let data = data else {
-                completion(.failure(NSError(domain: "No data", code: 0, userInfo: nil)))  // eger data bossa
+                completion(.failure(NSError(domain: "No data", code: 0, userInfo: nil))) // eger data bossa
                 return
             }
 
