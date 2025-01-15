@@ -5,77 +5,68 @@
 //  Created by Sümeyra Demirtaş on 1/3/25.
 //
 
+import Combine
 import Foundation
 
+// MARK: - Protocol Definition
 protocol PopularMoviesService {
-    func fetchPopularMovies(page: Int, completion: @escaping (Result<[Movie], Error>) -> Void)
+    func fetchPopularMovies(page: Int) -> AnyPublisher<[Movie], Error>
 }
 
-struct Movie: Decodable {
-    let id: Int
-    let title: String
-    let overview: String
-    let posterPath: String
-    let releaseDate: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, title, overview
-        case posterPath = "poster_path"
-        case releaseDate = "release_date"
-    }
-}
-
-struct PopularMoviesResponse: Decodable {
-    let results: [Movie]
-}
-
+// MARK: - Service Implementation
 struct PopularMoviesServiceImplementation: PopularMoviesService {
+    
+    // MARK: - Properties
     private let session: URLSession
     private let constants: Constants
 
+    // MARK: - Initializer
     init(session: URLSession = .shared, constants: Constants) {
         self.session = session
         self.constants = constants
     }
 
-    func fetchPopularMovies(page: Int, completion: @escaping (Result<[Movie], Error>) -> Void) {
-        // URL olusturma
-        let endpoint = "\(constants.apiHost)/movie/popular" // endpoint olusturuluyor
+    // MARK: - API Call
+    func fetchPopularMovies(page: Int) -> AnyPublisher<[Movie], Error> {
+        return Future { promise in
+            // URL Creation
+            let endpoint = "\(constants.apiHost)/movie/popular"
+            var urlComponents = URLComponents(string: endpoint)
+            urlComponents?.queryItems = [
+                URLQueryItem(name: "api_key", value: constants.apiKey),
+                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "page", value: "\(page)")
+            ]
 
-        var urlComponents = URLComponents(string: endpoint)
-        urlComponents?.queryItems = [ // Query parameters ekleniyor
-            URLQueryItem(name: "api_key", value: constants.apiKey),
-            URLQueryItem(name: "language", value: "en-US"),
-            URLQueryItem(name: "page", value: "\(page)")
-        ]
-
-        guard let url = urlComponents?.url else {
-            completion(.failure(NSError(domain: "Invalid URL", code: 0, userInfo: nil))) // URL olusturulamazsa hata donuyor
-            return
-        }
-
-        // Network olusturma
-        let task = session.dataTask(with: url) { data, _, error in // session.dataTask URL ye HTTP istegi yapar, yaniti isler.
-            if let error = error {
-                completion(.failure(error)) // eger istekte hata varsa
+            // Validate URL
+            guard let url = urlComponents?.url else {
+                promise(.failure(NSError(domain: "Invalid URL", code: 0, userInfo: nil)))
                 return
             }
 
-            guard let data = data else {
-                completion(.failure(NSError(domain: "No data", code: 0, userInfo: nil))) // eger data bossa
-                return
+            // Network Request
+            let task = session.dataTask(with: url) { data, _, error in
+                if let error = error {
+                    promise(.failure(error))
+                    return
+                }
+
+                guard let data = data else {
+                    promise(.failure(NSError(domain: "No data", code: 0, userInfo: nil)))
+                    return
+                }
+
+                // JSON Parsing
+                do {
+                    let decodedResponse = try JSONDecoder().decode(PopularMoviesResponse.self, from: data)
+                    promise(.success(decodedResponse.results))
+                } catch {
+                    promise(.failure(error))
+                }
             }
 
-            // JSON Parse
-            do {
-                let decodedResponse = try JSONDecoder().decode(PopularMoviesResponse.self, from: data) // JSON Decoder gelen yaniti PopularMoviesResponse yapisina cevirir.
-                completion(.success(decodedResponse.results)) // basarili ise
-            } catch {
-                completion(.failure(error)) // hatali ise
-            }
+            task.resume()
         }
-
-        // Istegi Baslat
-        task.resume()
+        .eraseToAnyPublisher() // Convert Future to AnyPublisher
     }
 }
