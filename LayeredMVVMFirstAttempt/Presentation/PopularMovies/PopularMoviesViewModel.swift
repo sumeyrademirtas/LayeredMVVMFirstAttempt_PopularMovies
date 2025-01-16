@@ -5,43 +5,111 @@
 //  Created by Sümeyra Demirtaş on 1/3/25.
 //
 
+import Combine
 import Foundation
 
-import Foundation
-
-final class PopularMoviesViewModel {
-    private var useCase: PopularMoviesUseCase? // bunu optional yapmamizin sebebi sonrasinda inject edecegimiz icin.
-
-    func inject(useCase: PopularMoviesUseCase?) { // neden inject? ViewModel in bagimsizliklarini sonradan atamak icin. VM i bagimsiz ve esnek yapiyor.
-        self.useCase = useCase
-    }
-
-    private(set) var movies: [Movie] = [] // private(set) kullandigimizda bu degiskeni sadece ViewModel degistirebilecek ama disaridan da okunabilir olacak.
-
-    private(set) var errorMessage: String?
+// MARK: - Protocol Definition
+protocol PopularMoviesViewModelProtocol {
+    func activityHandler(input: AnyPublisher<PopularMoviesViewModel.PopularVMInput, Never>) -> AnyPublisher<PopularMoviesViewModel.PopularVMOutput, Never>
 }
 
+final class PopularMoviesViewModel: PopularMoviesViewModelProtocol {
+    
+    // MARK: - Combine Properties
+    private let output = PassthroughSubject<PopularVMOutput, Never>() // Outputları yaymak için
+    private var cancellables = Set<AnyCancellable>() // Abonelikleri yönetmek için
+
+    // MARK: - Use Case
+    private var useCase: PopularMoviesUseCaseImplementation? // UseCase, API çağrıları için kullanılacak
+
+    // MARK: - Data Storage
+    private var sections: [SectionType] = []
+    private var movies: [Movie] = []
+
+    // MARK: - Initialization
+    init(useCase: PopularMoviesUseCaseImplementation) {
+        self.useCase = useCase
+    }
+}
+
+// MARK: - Activity Handler
 
 extension PopularMoviesViewModel {
-    func fetchPopularMovies(page: Int, completion: @escaping () -> Void) {
-        guard let useCase = useCase else {
-            errorMessage = "UseCase is not injected." // eger inject edilmediyse error.
-            movies = []
-            completion()
-            return
+    /// Kullanıcıdan gelen olayları dinler ve işler
+    func activityHandler(input: AnyPublisher<PopularVMInput, Never>) -> AnyPublisher<PopularVMOutput, Never> {
+        input.sink { [weak self] event in
+            switch event {
+            case .start(let page):
+                self?.start(page: page)
+            }
+        }.store(in: &cancellables)
+
+        return output.eraseToAnyPublisher()
+    }
+
+}
+
+// MARK: - Start Function - fetchMovies
+
+extension PopularMoviesViewModel {
+    
+    private func start(page: Int) {
+        // Yükleniyor durumunu başlat
+        output.send(.loading(isShow: true))
+
+        useCase?.fetchPopularMovies(page: page)
+            .sink(receiveCompletion: { [weak self] completion in
+                guard let self else { return }
+                switch completion {
+                case .finished:
+                    // İşlem tamamlandı, yükleniyor durumunu kapat
+                    self.output.send(.loading(isShow: false))
+                case .failure(let error):
+                    // Hata durumunda hata mesajını ilet
+                    self.output.send(.errorOccurred(message: error.localizedDescription))
+                }
+            }, receiveValue: { [weak self] movies in
+                guard let self else { return }
+                // Gelen verileri işleyerek UI'ye uygun hale getir
+                let sections = self.prepareUI(data: movies)
+                // Güncellenmiş verileri output ile yayınla
+                self.output.send(.moviesUpdated(sections: sections))
+            }).store(in: &cancellables) // Aboneliği yönetmek için cancellables'a ekle
+    }
+}
+
+extension PopularMoviesViewModel {
+    enum PopularVMOutput {
+        case loading(isShow: Bool) // Yükleniyor durumu
+        case moviesUpdated(sections: [SectionType]) // Güncellenen veriler
+        case errorOccurred(message: String) // Hata mesajı
+    }
+
+    enum PopularVMInput {
+        case start(page: Int)
+    }
+
+    enum SectionType {
+        case defaultSection(rows: [RowType])
+    }
+
+    enum RowType {
+        case movie(movie: Movie)
+    }
+}
+
+// MARK: - Prepare UI
+
+extension PopularMoviesViewModel {
+    private func prepareUI(data: [Movie]) -> [SectionType] {
+        var section = [SectionType]()
+        var rowType = [RowType]()
+
+        for movie in data {
+            rowType.append(.movie(movie: movie))
         }
 
-        useCase.fetchPopularMovies(page: page) { [weak self] result in // API cagirisi
-            guard let self = self else { return }
-            switch result {
-            case .success(let movies): // basarili ise movies guncellenir ve errormessage bosaltilir.
-                self.movies = movies
-                self.errorMessage = nil
-            case .failure(let error):
-                self.movies = [] // hataliysa movies dizisi bos set edilir, errorMessage dolar.
-                self.errorMessage = error.localizedDescription
-            }
-            completion() // islem tamamlandiginda ViewController a haber verir.
-        }
+        section.append(.defaultSection(rows: rowType))
+        return section
     }
 }
