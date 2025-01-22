@@ -22,10 +22,11 @@ struct PopularMoviesBuilderImplementation: PopularMoviesBuilder {
         
         let useCase = PopularMoviesUseCaseImplementation(service: service)
         
-        let viewModel = PopularMoviesViewModel()
-        viewModel.inject(useCase: useCase)
+        let viewModel = PopularMoviesViewModel(useCase: useCase)
+                
+        let provider = PopularMoviesTableViewProviderImpl()
         
-        let vc = PopularMoviesViewController(viewModel: viewModel)
+        let vc = PopularMoviesViewController(viewModel: viewModel, provider: provider)
         
         return vc
     }
