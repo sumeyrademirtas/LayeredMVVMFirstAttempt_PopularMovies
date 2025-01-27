@@ -9,38 +9,39 @@ import Combine
 import Foundation
 
 // MARK: - Protocol Definition
-protocol PopularMoviesViewModelProtocol {
-    func activityHandler(input: AnyPublisher<PopularMoviesViewModel.PopularVMInput, Never>) -> AnyPublisher<PopularMoviesViewModel.PopularVMOutput, Never>
+protocol MoviesViewModelProtocol {
+    func activityHandler(input: AnyPublisher<MoviesViewModel.MovieVMInput, Never>) -> AnyPublisher<MoviesViewModel.MovieVMOutput, Never>
 }
 
-final class PopularMoviesViewModel: PopularMoviesViewModelProtocol {
+final class MoviesViewModel: MoviesViewModelProtocol {
     
     // MARK: - Combine Properties
-    private let output = PassthroughSubject<PopularVMOutput, Never>() // Outputları yaymak için
+    private let output = PassthroughSubject<MovieVMOutput, Never>() // Outputları yaymak için
     private var cancellables = Set<AnyCancellable>() // Abonelikleri yönetmek için
 
     // MARK: - Use Case
-    private var useCase: PopularMoviesUseCaseImplementation? // UseCase, API çağrıları için kullanılacak
+    private var useCase: MoviesUseCaseImplementation? // UseCase, API çağrıları için kullanılacak
 
     // MARK: - Data Storage
+    private var categorySections: [MovieCategory: [SectionType]] = [:]
     private var sections: [SectionType] = []
     private var movies: [Movie] = []
 
     // MARK: - Initialization
-    init(useCase: PopularMoviesUseCaseImplementation) {
+    init(useCase: MoviesUseCaseImplementation) {
         self.useCase = useCase
     }
 }
 
 // MARK: - Activity Handler
 
-extension PopularMoviesViewModel {
+extension MoviesViewModel {
     /// Kullanıcıdan gelen olayları dinler ve işler
-    func activityHandler(input: AnyPublisher<PopularVMInput, Never>) -> AnyPublisher<PopularVMOutput, Never> {
+    func activityHandler(input: AnyPublisher<MovieVMInput, Never>) -> AnyPublisher<MovieVMOutput, Never> {
         input.sink { [weak self] event in
             switch event {
-            case .start(let page):
-                self?.start(page: page)
+            case .start(let categories, let page): // categories artık bir dizi
+                self?.start(categories: categories, page: page) // start fonksiyonunu çağır
             }
         }.store(in: &cancellables)
 
@@ -51,42 +52,53 @@ extension PopularMoviesViewModel {
 
 // MARK: - Start Function - fetchMovies
 
-extension PopularMoviesViewModel {
-    
-    private func start(page: Int) {
-        // Yükleniyor durumunu başlat
-        output.send(.loading(isShow: true))
-
-        useCase?.fetchPopularMovies(page: page)
+extension MoviesViewModel {
+    private func start(categories: [MovieCategory], page: Int) {
+        output.send(.loading(isShow: true)) // Yükleniyor durumunu başlat
+        
+        let publishers = categories.map { category in
+            useCase?.fetchMovies(category: category, page: page) ?? Empty<[Movie], Error>().eraseToAnyPublisher()
+        }
+        
+        Publishers.MergeMany(publishers)
+            .collect() // Tüm yayınları birleştir
             .sink(receiveCompletion: { [weak self] completion in
-                guard let self else { return }
+                guard let self = self else { return }
                 switch completion {
                 case .finished:
-                    // İşlem tamamlandı, yükleniyor durumunu kapat
-                    self.output.send(.loading(isShow: false))
+                    self.output.send(.loading(isShow: false)) // Yükleniyor durumunu kapat
                 case .failure(let error):
-                    // Hata durumunda hata mesajını ilet
-                    self.output.send(.errorOccurred(message: error.localizedDescription))
+                    self.output.send(.errorOccurred(message: error.localizedDescription)) // Hata mesajını ilet
                 }
-            }, receiveValue: { [weak self] movies in
-                guard let self else { return }
-                // Gelen verileri işleyerek UI'ye uygun hale getir
-                let sections = self.prepareUI(data: movies)
-                // Güncellenmiş verileri output ile yayınla
-                self.output.send(.moviesUpdated(sections: sections))
-            }).store(in: &cancellables) // Aboneliği yönetmek için cancellables'a ekle
+            }, receiveValue: { [weak self] results in
+                guard let self = self else { return }
+                for (index, category) in categories.enumerated() {
+                    let sections = self.prepareUI(data: results[index])
+                    self.output.send(.sectionUpdated(category: category, sections: sections)) // Kategoriye uygun bölümleri yayınla
+                }
+            }).store(in: &cancellables)
     }
 }
 
-extension PopularMoviesViewModel {
-    enum PopularVMOutput {
-        case loading(isShow: Bool) // Yükleniyor durumu
-        case moviesUpdated(sections: [SectionType]) // Güncellenen veriler
+extension MoviesViewModel {
+//    enum PopularVMOutput {
+//        case loading(isShow: Bool) // Yükleniyor durumu
+//        case moviesUpdated(sections: [SectionType]) // Güncellenen veriler
+//        case errorOccurred(message: String) // Hata mesajı
+//    }
+    
+    enum MovieVMOutput {
+        case loading(isShow: Bool) // Yüklenme durumu
+        case sectionUpdated(category: MovieCategory, sections: [SectionType]) // Kategori bazlı güncelleme
         case errorOccurred(message: String) // Hata mesajı
     }
 
-    enum PopularVMInput {
-        case start(page: Int)
+//    enum PopularVMInput {
+//        case start(category: MovieCategory, page: Int)
+//    }
+    
+    enum MovieVMInput {
+        case start(categories: [MovieCategory], page: Int) // Birden fazla kategori ve sayfa
     }
 
     enum SectionType {
@@ -100,7 +112,7 @@ extension PopularMoviesViewModel {
 
 // MARK: - Prepare UI
 
-extension PopularMoviesViewModel {
+extension MoviesViewModel {
     private func prepareUI(data: [Movie]) -> [SectionType] {
         var section = [SectionType]()
         var rowType = [RowType]()
