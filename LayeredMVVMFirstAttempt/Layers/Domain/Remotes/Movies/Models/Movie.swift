@@ -41,6 +41,10 @@ enum MovieCategory: String {
     case topRated = "top_rated"
     case upcoming = "upcoming"
     
+    static var orderedCategories: [MovieCategory] {
+        return [.popular, .upcoming, .nowPlaying, .topRated]
+    }
+    
     var endpoint: String {
             switch self {
             case .nowPlaying:
