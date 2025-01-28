@@ -11,7 +11,7 @@ import UIKit
 
 /// Yeni versiyon
 
-// MARK: - MoviesCollectionViewProvider
+// MARK: - MoviesCollectionViewProvider Protocol
 
 protocol MoviesCollectionViewProvider: CollectionViewProvider where T == [MovieCategory: [Movie]], I == IndexPath {
     func activityHandler(input: AnyPublisher<MoviesCollectionViewProviderImpl.MoviesProviderInput, Never>) -> AnyPublisher<MoviesCollectionViewProviderImpl.MoviesProviderOutput, Never>
@@ -23,16 +23,13 @@ final class MoviesCollectionViewProviderImpl: NSObject, MoviesCollectionViewProv
     typealias T = [MovieCategory: [Movie]]
     typealias I = IndexPath
     var dataList: [MovieCategory: [Movie]] = [:]
-    
-
     /// Binding subjects for interaction events
     private var cancellables = Set<AnyCancellable>()
     private let output = PassthroughSubject<MoviesProviderOutput, Never>()
-
     weak var collectionView: UICollectionView?
 }
 
-// MARK: - Event Types
+// MARK: - Input & Output Definitions
 
 extension MoviesCollectionViewProviderImpl {
     enum MoviesProviderOutput {
@@ -45,7 +42,7 @@ extension MoviesCollectionViewProviderImpl {
     }
 }
 
-// MARK: - Binding Methods
+// MARK: - Binding Methods - Activity Handler
 
 extension MoviesCollectionViewProviderImpl {
     func activityHandler(input: AnyPublisher<MoviesProviderInput, Never>) -> AnyPublisher<MoviesProviderOutput, Never> {
@@ -68,17 +65,17 @@ extension MoviesCollectionViewProviderImpl {
 // MARK: - CollectionView Setup
 
 extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    /// CollectionView temel ayarları
     func setupCollectionView(collectionView: UICollectionView) {
         self.collectionView = collectionView
         self.collectionView?.dataSource = self
         self.collectionView?.delegate = self
-
+        // Hücre ve header register işlemleri
         self.collectionView?.register(SectionCell.self, forCellWithReuseIdentifier: SectionCell.reuseIdentifier)
-
-        // Header için register
         self.collectionView?.register(UICollectionReusableView.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: "DefaultHeaderView")
     }
     
+    /// Header View Ayarları
     func collectionView(
         _ collectionView: UICollectionView,
         viewForSupplementaryElementOfKind kind: String,
@@ -90,21 +87,10 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
 
         let header = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: "DefaultHeaderView", for: indexPath)
 
-        // Header'ın eski subviews'lerini temizle
         header.subviews.forEach { $0.removeFromSuperview() }
 
-        // Section için ilgili kategoriyi al
         let category = Array(dataList.keys)[indexPath.section]
-//        print("Header for section \(indexPath.section): \(category.displayName)")
 
-        // Movies loglama
-        if let movies = dataList[category] {
-//            print("Movies for section \(indexPath.section): \(movies.map { $0.title })")
-        } else {
-//            print("Movies for section \(indexPath.section): Bulunamadı")
-        }
-
-        // Header için UILabel oluştur
         let titleLabel = UILabel(frame: CGRect(x: 16, y: 0, width: collectionView.frame.width - 32, height: 30))
         titleLabel.font = UIFont.boldSystemFont(ofSize: 16)
         titleLabel.textColor = .black
@@ -114,24 +100,28 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         return header
     }
     
+    /// Header boyutları
     func collectionView(
         _ collectionView: UICollectionView,
         layout collectionViewLayout: UICollectionViewLayout,
         referenceSizeForHeaderInSection section: Int
     ) -> CGSize {
-        return CGSize(width: collectionView.frame.width, height: 30) // Header boyutları
+        return CGSize(width: collectionView.frame.width, height: 30)
     }
 
+    /// Section sayısı
     func numberOfSections(in collectionView: UICollectionView) -> Int {
         let sectionCount = dataList.keys.count
         print("Toplam section sayısı: \(sectionCount)")
         return sectionCount
     }
 
+    /// Hücre sayısı
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return 1 // Her section bir adet SectionCell içerecek
     }
-
+    
+    /// Hücre boyutları
     func collectionView(
         _ collectionView: UICollectionView,
         layout collectionViewLayout: UICollectionViewLayout,
@@ -140,14 +130,16 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         return CGSize(width: collectionView.frame.width, height: 250) // Tüm genişlik + uygun yükseklik SECTION IN YUKSEKLIGI GENISLIGI BURASI.
     }
 
+    /// Section kenar boşlukları
     func collectionView(
         _ collectionView: UICollectionView,
         layout collectionViewLayout: UICollectionViewLayout,
         insetForSectionAt section: Int
     ) -> UIEdgeInsets {
-        return UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10) // Section içi kenar boşlukları
+        return UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
     }
 
+    /// Satır arası boşluk
     func collectionView(
         _ collectionView: UICollectionView,
         layout collectionViewLayout: UICollectionViewLayout,
@@ -156,6 +148,7 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         return 5 // Satırlar arası boşluk
     }
 
+    /// Hücreler arası boşluk
     func collectionView(
         _ collectionView: UICollectionView,
         layout collectionViewLayout: UICollectionViewLayout,
@@ -164,39 +157,41 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         return 5 // Hücreler arası boşluk.
     }
 
+    /// Hücreyi oluştur ve ayarla
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: SectionCell.reuseIdentifier, for: indexPath) as? SectionCell else {
             fatalError("Unable to dequeue SectionCell")
         }
-
-        // Section için ilgili MovieCategory ve movies verilerini ayarla
         let category = Array(dataList.keys)[indexPath.section]
-//        print("Category for section \(indexPath.section): \(category)")
         cell.movies = dataList[category] ?? []
 
         return cell
     }
-
+    
+    /// Hücre seçimi
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let category = Array(dataList.keys)[indexPath.section]
         if let movie = dataList[category]?[indexPath.row] {
             print("Selected movie: \(movie.title)")
-            output.send(.didSelect(indexPath: indexPath)) // Burada basit bir şekilde hangi filmi seçtiğini gönderiyoruz.
+            output.send(.didSelect(indexPath: indexPath)) // Burada hangi filmi seçtiğini gönderiyoruz.
         }
     }
+}
 
+
+// MARK: - Data Management
+
+extension MoviesCollectionViewProviderImpl {
+    /// Veriyi hazırla
     func prepareCollectionView(data: [MovieCategory: [Movie]]) {
-        print("prepareCollectionView çağrıldı. Gelen veri: \(data.keys)") // Tüm kategoriler
-        dataList.merge(data) { _, new in new } // Var olanlara yenileri ekle
-        print("DataList Merge Sonrası: \(dataList.keys)") // Merge kontrolü
+        dataList.merge(data) { _, new in new }
         reloadCollectionView()
     }
 
+    /// CollectionView'i yeniden yükle
     func reloadCollectionView() {
-        print("reloadCollectionView çağrıldı.")
         DispatchQueue.main.async { [weak self] in
             self?.collectionView?.reloadData()
-            print("CollectionView yeniden yüklendi.")
         }
     }
 }

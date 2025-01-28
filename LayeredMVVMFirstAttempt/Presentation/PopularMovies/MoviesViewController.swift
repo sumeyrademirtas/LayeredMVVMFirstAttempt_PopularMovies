@@ -32,12 +32,11 @@ final class PopularMoviesViewController: UIViewController {
         layout.scrollDirection = .vertical
         layout.minimumLineSpacing = 10
         layout.minimumInteritemSpacing = 10
-        layout.itemSize = CGSize(width: 150, height: 200) // MARK: - BURANIN OLAYI NE
-
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         return collectionView
     }()
+
 
     // MARK: - Initialization
 
