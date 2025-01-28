@@ -105,7 +105,7 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         }
 
         // Header için UILabel oluştur
-        let titleLabel = UILabel(frame: CGRect(x: 16, y: 0, width: collectionView.frame.width - 32, height: 50))
+        let titleLabel = UILabel(frame: CGRect(x: 16, y: 0, width: collectionView.frame.width - 32, height: 30))
         titleLabel.font = UIFont.boldSystemFont(ofSize: 16)
         titleLabel.textColor = .black
         titleLabel.text = category.displayName
@@ -119,7 +119,7 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         layout collectionViewLayout: UICollectionViewLayout,
         referenceSizeForHeaderInSection section: Int
     ) -> CGSize {
-        return CGSize(width: collectionView.frame.width, height: 50) // Header boyutları
+        return CGSize(width: collectionView.frame.width, height: 30) // Header boyutları
     }
 
     func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -137,7 +137,7 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         layout collectionViewLayout: UICollectionViewLayout,
         sizeForItemAt indexPath: IndexPath
     ) -> CGSize {
-        return CGSize(width: collectionView.frame.width, height: 250) // Tüm genişlik + uygun yükseklik
+        return CGSize(width: collectionView.frame.width, height: 250) // Tüm genişlik + uygun yükseklik SECTION IN YUKSEKLIGI GENISLIGI BURASI.
     }
 
     func collectionView(
@@ -153,7 +153,7 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         layout collectionViewLayout: UICollectionViewLayout,
         minimumLineSpacingForSectionAt section: Int
     ) -> CGFloat {
-        return 15 // Satırlar arası boşluk
+        return 5 // Satırlar arası boşluk
     }
 
     func collectionView(
@@ -161,7 +161,7 @@ extension MoviesCollectionViewProviderImpl: UICollectionViewDelegate, UICollecti
         layout collectionViewLayout: UICollectionViewLayout,
         minimumInteritemSpacingForSectionAt section: Int
     ) -> CGFloat {
-        return 10 // Hücreler arası boşluk
+        return 5 // Hücreler arası boşluk.
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {

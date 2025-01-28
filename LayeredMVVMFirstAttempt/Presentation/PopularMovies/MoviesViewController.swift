@@ -32,7 +32,7 @@ final class PopularMoviesViewController: UIViewController {
         layout.scrollDirection = .vertical
         layout.minimumLineSpacing = 10
         layout.minimumInteritemSpacing = 10
-        layout.itemSize = CGSize(width: 150, height: 200)
+        layout.itemSize = CGSize(width: 150, height: 200) // MARK: - BURANIN OLAYI NE
 
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -64,6 +64,7 @@ final class PopularMoviesViewController: UIViewController {
         inputPR.send(.setupUI(collectionView: collectionView))
         print("inputPR.send çağrıldı.")
         // Tüm kategoriler için input gönderimi
+        // Kategori sirasi
         let categories: [MovieCategory] = [.popular, .upcoming, .topRated, .nowPlaying]
         inputVM.send(.start(categories: categories, page: 1)) // Tüm kategoriler için veri talebi
     }
