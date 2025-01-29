@@ -11,8 +11,6 @@ class MovieCollectionViewCell: UICollectionViewCell {
     // MARK: - Properties
 
     private let posterImageView = UIImageView()
-    private let titleLabel = UILabel()
-    private let voteAverageLabel = UILabel()
 
     // MARK: - Initialization
 
@@ -37,45 +35,23 @@ class MovieCollectionViewCell: UICollectionViewCell {
         posterImageView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(posterImageView)
 
-        // Title Label
-        titleLabel.font = UIFont.boldSystemFont(ofSize: 14)
-        titleLabel.textColor = .black
-        titleLabel.textAlignment = .center
-        titleLabel.numberOfLines = 2
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(titleLabel)
-
-        // Vote Average Label
-        voteAverageLabel.font = UIFont.systemFont(ofSize: 12)
-        voteAverageLabel.textColor = .gray
-        voteAverageLabel.textAlignment = .center
-        voteAverageLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(voteAverageLabel)
-
         // Constraints
         NSLayoutConstraint.activate([
             posterImageView.topAnchor.constraint(equalTo: contentView.topAnchor),
             posterImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             posterImageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            posterImageView.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.7),
-
-            titleLabel.topAnchor.constraint(equalTo: posterImageView.bottomAnchor, constant: 8),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
-
-            voteAverageLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
-            voteAverageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
-            voteAverageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
-            voteAverageLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4)
+            posterImageView.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 1)
         ])
+    }
+
+    override func prepareForReuse() { // MARK: - GEREKLI MI?
+        super.prepareForReuse()
+        posterImageView.image = nil
     }
 
     // MARK: - Configure Cell
 
     func configure(with movie: Movie) {
-        titleLabel.text = movie.title
-        voteAverageLabel.text = "Rating: \(movie.voteAverage)"
-        // Resmi yükle
         loadImage(from: movie.fullPosterURL)
     }
 
@@ -97,6 +73,4 @@ class MovieCollectionViewCell: UICollectionViewCell {
             }
         }.resume()
     }
-    
-    
 }
