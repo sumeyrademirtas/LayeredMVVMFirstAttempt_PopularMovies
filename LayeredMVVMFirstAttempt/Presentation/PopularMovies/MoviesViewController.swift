@@ -26,6 +26,13 @@ final class PopularMoviesViewController: UIViewController {
     private var cancellables = Set<AnyCancellable>()
 
     // UI Elements
+    private let logoImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.image = UIImage(named: "tmdb") // Assets içindeki `tmdb.svg` kullanılıyor
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
 
     private let collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -36,7 +43,6 @@ final class PopularMoviesViewController: UIViewController {
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         return collectionView
     }()
-
 
     // MARK: - Initialization
 
@@ -71,11 +77,20 @@ final class PopularMoviesViewController: UIViewController {
     // MARK: - Setup UI
 
     private func setupUI() {
+        // Logoyu ekle
+        view.addSubview(logoImageView)
         view.addSubview(collectionView)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        collectionView.backgroundColor = .blue // Ana CollectionView'i kontrol etmek için
+        collectionView.backgroundColor = .darkGray // Ana CollectionView'i kontrol etmek için
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
+            // Logo ImageView (Sayfanın üstünde ortalanmış)
+            logoImageView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            logoImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            logoImageView.heightAnchor.constraint(equalToConstant: 40), // Logonun boyutu
+            logoImageView.widthAnchor.constraint(equalToConstant: 120), // Logonun genişliği
+
+            // CollectionView (Logonun hemen altında başlayacak)
+            collectionView.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 10),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
@@ -89,33 +104,14 @@ extension PopularMoviesViewController {
     /// Combine Publisher ve Subscriber’ları bağlar
     private func binding() {
         print("Binding başladı.") // Log kontrolü
-        
+
         // ViewModel’den gelen çıktıları dinle
         let viewModelOutput = viewModel?.activityHandler(input: inputVM.eraseToAnyPublisher())
         viewModelOutput?.receive(on: DispatchQueue.main).sink { [weak self] event in
             print("ViewModel'den çıktı alındı: \(event)") // ViewModel'den çıkan olayları logla
             switch event {
             case .sectionUpdated(let category, let sections):
-                print("Category: \(category) güncellendi. Sections: \(sections)") // Kategorileri ve section'ları logla
-
-                // Sections'ı Dictionary formatına dönüştür
-                let mappedData: [MovieCategory: [Movie]] = [
-                    category: sections.flatMap { section -> [Movie] in
-                        switch section {
-                        case .defaultSection(let rows):
-                            return rows.compactMap { row in
-                                switch row {
-                                case .movie(let movie):
-                                    return movie
-                                }
-                            }
-                        }
-                    }
-                ]
-
-                print("Mapped Data Hazırlandı: \(mappedData)") // Mapped data'yı kontrol et
-                self?.inputPR.send(.prepareCollectionView(data: mappedData))
-                print("inputPR.send çağrıldı.") // Gönderim kontrolü
+                break
 
             case .errorOccurred(let message):
                 print("Hata oluştu: \(message)")
@@ -123,10 +119,11 @@ extension PopularMoviesViewController {
 
             case .loading(isShow: let isShow):
                 print("Yükleme durumu: \(isShow)")
-                break
+            case .dataSource(sections: let sections):
+                self?.inputPR.send(.prepareCollectionView(data: sections))
             }
         }.store(in: &cancellables)
-        
+
         // **Provider'dan gelen çıktıları dinle**
         let providerOutput = provider?.activityHandler(input: inputPR.eraseToAnyPublisher())
         providerOutput?.sink { [weak self] event in
