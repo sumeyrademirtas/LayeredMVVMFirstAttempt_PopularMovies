@@ -9,25 +9,29 @@ import Combine
 import Foundation
 
 // MARK: - Protocol Definition
+
 protocol MoviesViewModelProtocol {
     func activityHandler(input: AnyPublisher<MoviesViewModel.MovieVMInput, Never>) -> AnyPublisher<MoviesViewModel.MovieVMOutput, Never>
 }
 
 final class MoviesViewModel: MoviesViewModelProtocol {
-    
     // MARK: - Combine Properties
+
     private let output = PassthroughSubject<MovieVMOutput, Never>() // Outputları yaymak için
     private var cancellables = Set<AnyCancellable>() // Abonelikleri yönetmek için
 
     // MARK: - Use Case
+
     private var useCase: MoviesUseCaseImplementation? // UseCase, API çağrıları için kullanılacak
 
     // MARK: - Data Storage
+
     private var categorySections: [MovieCategory: [SectionType]] = [:]
     private var sections: [SectionType] = []
     private var movies: [Movie] = []
 
     // MARK: - Initialization
+
     init(useCase: MoviesUseCaseImplementation) {
         self.useCase = useCase
     }
@@ -47,7 +51,6 @@ extension MoviesViewModel {
 
         return output.eraseToAnyPublisher()
     }
-
 }
 
 // MARK: - Start Function - fetchMovies
@@ -55,28 +58,17 @@ extension MoviesViewModel {
 extension MoviesViewModel {
     private func start(categories: [MovieCategory], page: Int) {
         output.send(.loading(isShow: true)) // Yükleniyor durumunu başlat
-        
-        let publishers = categories.map { category in
-            useCase?.fetchMovies(category: category, page: page) ?? Empty<[Movie], Error>().eraseToAnyPublisher()
-        }
-        
-        Publishers.MergeMany(publishers)
-            .collect() // Tüm yayınları birleştir
-            .sink(receiveCompletion: { [weak self] completion in
-                guard let self = self else { return }
-                switch completion {
-                case .finished:
-                    self.output.send(.loading(isShow: false)) // Yükleniyor durumunu kapat
-                case .failure(let error):
-                    self.output.send(.errorOccurred(message: error.localizedDescription)) // Hata mesajını ilet
-                }
-            }, receiveValue: { [weak self] results in
-                guard let self = self else { return }
-                for (index, category) in categories.enumerated() {
-                    let sections = self.prepareUI(data: results[index])
-                    self.output.send(.sectionUpdated(category: category, sections: sections)) // Kategoriye uygun bölümleri yayınla
-                }
-            }).store(in: &cancellables)
+        useCase?.fetchAllMovies()?.sink(receiveCompletion: { completion in
+            switch completion {
+            case .finished:
+                self.output.send(.loading(isShow: false))
+            case .failure(let error):
+                print("Error: \(error)")
+            }
+        }, receiveValue: { movies in
+            let sections = self.prepareUI(popular: movies.0, upcoming: movies.1, nowPlaying: movies.2, topRated: movies.3)
+            self.output.send(.dataSource(sections: sections))
+        }).store(in: &cancellables)
     }
 }
 
@@ -86,42 +78,65 @@ extension MoviesViewModel {
 //        case moviesUpdated(sections: [SectionType]) // Güncellenen veriler
 //        case errorOccurred(message: String) // Hata mesajı
 //    }
-    
+
     enum MovieVMOutput {
         case loading(isShow: Bool) // Yüklenme durumu
         case sectionUpdated(category: MovieCategory, sections: [SectionType]) // Kategori bazlı güncelleme
         case errorOccurred(message: String) // Hata mesajı
+        case dataSource(sections: [SectionType])
     }
 
 //    enum PopularVMInput {
 //        case start(category: MovieCategory, page: Int)
 //    }
-    
+
     enum MovieVMInput {
         case start(categories: [MovieCategory], page: Int) // Birden fazla kategori ve sayfa
     }
 
+    // [.popular, .upcoming, .nowPlaying, .topRated]
     enum SectionType {
-        case defaultSection(rows: [RowType])
+        case popular(rows: [RowType])
+        case upcoming(rows: [RowType])
+        case nowPlaying(rows: [RowType])
+        case topRated(rows: [RowType])
     }
 
     enum RowType {
-        case movie(movie: Movie)
+        case movie(movie: [Movie])
     }
 }
 
 // MARK: - Prepare UI
 
 extension MoviesViewModel {
-    private func prepareUI(data: [Movie]) -> [SectionType] {
+    private func prepareUI(popular: MoviesResponse?, upcoming: MoviesResponse?, nowPlaying: MoviesResponse?, topRated: MoviesResponse?) -> [SectionType] {
         var section = [SectionType]()
-        var rowType = [RowType]()
+        var popularRowType = [RowType]()
+        var upcomingRowType = [RowType]()
+        var nowPlayingRowType = [RowType]()
+        var topRatedRowType = [RowType]()
 
-        for movie in data {
-            rowType.append(.movie(movie: movie))
+        if let popular = popular?.results {
+            popularRowType.append(.movie(movie: popular))
+            section.append(.popular(rows: popularRowType))
         }
 
-        section.append(.defaultSection(rows: rowType))
+        if let upcoming = upcoming?.results {
+            upcomingRowType.append(.movie(movie: upcoming))
+            section.append(.upcoming(rows: upcomingRowType))
+        }
+
+        if let nowPlaying = nowPlaying?.results {
+            nowPlayingRowType.append(.movie(movie: nowPlaying))
+            section.append(.nowPlaying(rows: nowPlayingRowType))
+        }
+
+        if let topRated = topRated?.results {
+            topRatedRowType.append(.movie(movie: topRated))
+            section.append(.topRated(rows: topRatedRowType))
+        }
+
         return section
     }
 }
