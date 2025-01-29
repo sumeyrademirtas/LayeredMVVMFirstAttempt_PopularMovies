@@ -34,7 +34,7 @@ protocol CollectionViewProvider {
     /// Prepares the collection view with a new data set.
     /// - Parameter data: The data to be displayed in the collection view.
 //    func prepareCollectionView(data: [T])
-    func prepareCollectionView(data: T)
+    func prepareCollectionView(data: [T])
 
 
     /// Reloads the data in the collection view. Useful for refreshing the content.
